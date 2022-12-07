@@ -20,6 +20,7 @@ import pytz
 # Global
 base_url = 'https://bid.cbf.com.br/'
 bid_cache = set()
+SCREENSHOT_PATH = "row_screenshot.png"
 
 @dataclass(frozen=True)
 class BidPlayer:
@@ -29,6 +30,7 @@ class BidPlayer:
   timestamp: str
   nickname: str
   contract_type: str
+  screenshot: str
   
 
 
@@ -41,12 +43,14 @@ def publish_on_twitter(player):
   api = tweepy.API(auth)
 
   # Download Image
-  img_data = requests.get(player.photo).content
-  player_image_pil = Image.open(BytesIO(img_data))
+  #img_data = requests.get(player.photo).content
+  #player_image_pil = Image.open(BytesIO(img_data))
+  screenshot_image_pil = Image.open(SCREENSHOT_PATH)
   player_name_url_escaped = urllib.parse.quote(player.name)
   buf = BytesIO()
-  player_image_pil.save(buf, format='PNG')
+  screenshot_image_pil.save(buf, format='PNG')
   buf.seek(0)
+  screenshot_image_pil.show()
   
   ret = api.media_upload(filename=f"{player_name_url_escaped}_photo.png", file=buf)
   
@@ -84,6 +88,8 @@ def fetch_players_info(page):
     timestamp = page.locator(f'xpath=//*[@id="lista"]/div[{index}]/div/div/div[3]/p[3]/strong').text_content()
     nickname = page.locator(f'xpath=//*[@id="lista"]/div[{index}]/div/div/div[3]/p[6]/strong').text_content()
     contract_type = page.locator(f'xpath=//*[@id="lista"]/div[{index}]/div/div/div[3]/p[2]/strong').text_content()
+    
+    page.locator(f'//*[@id="lista"]/div[{index}]/div/div').screenshot(path=SCREENSHOT_PATH)
     player = BidPlayer(name=name, photo=photo, timestamp=timestamp, nickname=nickname, contract_type=contract_type)
     if player not in bid_cache:
       print(f'Found Player: {index}')
@@ -105,21 +111,26 @@ def job():
   
   now_date = datetime.now(pytz.timezone('America/Sao_Paulo'))
   hour = int(now_date.strftime("%H"))
-  if hour < 9 or hour >= 18:
+  if hour < 9 or hour >= 20:
     print(f' hour is {hour} CBF Bid is closed, do not need to run')
     return
   
   with sync_playwright() as p:
       browser = p.webkit.launch()
       page = browser.new_page()
-      page.goto(base_url)
+      
+      try:
+        page.goto(base_url)
+      except TimeoutError:
+        print(f'{base_url} returned a timeout, skipping this job and try again later')
+        return
     
       # Today Date
       current_time = datetime.now(pytz.timezone('America/Sao_Paulo'))
       current_time_string = current_time.strftime('%d/%m/%Y')
       date_input_xpath = 'xpath=//*[@id="form-busca-bid"]/div[1]/div[1]/input'
       page.locator(date_input_xpath).evaluate("el => el.removeAttribute('readonly')")
-      page.locator(date_input_xpath).fill(current_time_string, force=True)
+      page.locator(date_input_xpath).fill("01/12/2022", force=True)
       print(f'Setting Date to {current_time_string}...')
       # State -> BA
       page.select_option('xpath=//*[@id="form-busca-bid"]/div[1]/div[2]/select', label='BA')
