@@ -30,7 +30,6 @@ class BidPlayer:
   timestamp: str
   nickname: str
   contract_type: str
-  screenshot: str
   
 
 
@@ -50,7 +49,6 @@ def publish_on_twitter(player):
   buf = BytesIO()
   screenshot_image_pil.save(buf, format='PNG')
   buf.seek(0)
-  screenshot_image_pil.show()
   
   ret = api.media_upload(filename=f"{player_name_url_escaped}_photo.png", file=buf)
   
@@ -130,7 +128,7 @@ def job():
       current_time_string = current_time.strftime('%d/%m/%Y')
       date_input_xpath = 'xpath=//*[@id="form-busca-bid"]/div[1]/div[1]/input'
       page.locator(date_input_xpath).evaluate("el => el.removeAttribute('readonly')")
-      page.locator(date_input_xpath).fill("01/12/2022", force=True)
+      page.locator(date_input_xpath).fill(current_time_string, force=True)
       print(f'Setting Date to {current_time_string}...')
       # State -> BA
       page.select_option('xpath=//*[@id="form-busca-bid"]/div[1]/div[2]/select', label='BA')
